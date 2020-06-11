@@ -117,7 +117,7 @@ TEST_F(JogArmFixture, SendTwistStampedTest)
   // Create publisher to send jog_arm commands
   auto twist_stamped_pub = nh_.advertise<geometry_msgs::TwistStamped>(parameters.cartesian_command_in_topic, 1);
 
-  constexpr double test_duration = 1.0;
+  constexpr double test_duration = 20.0;
   const double publish_period = parameters.publish_period;
   const size_t num_commands = static_cast<size_t>(test_duration / publish_period);
 
@@ -157,7 +157,7 @@ TEST_F(JogArmFixture, SendJointJogTest)
   // Create publisher to send jog_arm commands
   auto joint_jog_pub = nh_.advertise<control_msgs::JointJog>(parameters.joint_command_in_topic, 1);
 
-  constexpr double test_duration = 1.0;
+  constexpr double test_duration = 20.0;
   const double publish_period = parameters.publish_period;
   const size_t num_commands = static_cast<size_t>(test_duration / publish_period);
 
