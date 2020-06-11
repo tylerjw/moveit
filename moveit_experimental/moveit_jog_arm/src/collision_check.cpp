@@ -210,13 +210,13 @@ void CollisionCheck::run(const ros::TimerEvent& timer_event)
   }
 }
 
-void CollisionCheck::jointStateCB(const sensor_msgs::JointStateConstPtr& msg)
+void CollisionCheck::jointStateCB(sensor_msgs::JointStateConstPtr msg)
 {
   const std::lock_guard<std::mutex> lock(joint_state_mutex_);
-  latest_joint_state_ = msg;
+  latest_joint_state_ = std::move(msg);
 }
 
-void CollisionCheck::worstCaseStopTimeCB(const std_msgs::Float64ConstPtr& msg)
+void CollisionCheck::worstCaseStopTimeCB(std_msgs::Float64ConstPtr msg)
 {
   worst_case_stop_time_ = msg->data;
 }

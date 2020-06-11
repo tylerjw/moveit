@@ -956,10 +956,10 @@ void JogCalcs::removeDimension(Eigen::MatrixXd& jacobian, Eigen::VectorXd& delta
   delta_x.conservativeResize(num_rows);
 }
 
-void JogCalcs::jointStateCB(const sensor_msgs::JointStateConstPtr& msg)
+void JogCalcs::jointStateCB(sensor_msgs::JointStateConstPtr msg)
 {
   const std::lock_guard<std::mutex> lock(latest_state_mutex_);
-  incoming_joint_state_ = msg;
+  incoming_joint_state_ = std::move(msg);
 }
 
 bool JogCalcs::getCommandFrameTransform(Eigen::Isometry3d& transform)
@@ -971,27 +971,27 @@ bool JogCalcs::getCommandFrameTransform(Eigen::Isometry3d& transform)
   return !transform.matrix().isZero(0);
 }
 
-void JogCalcs::twistStampedCB(const geometry_msgs::TwistStampedConstPtr& msg)
+void JogCalcs::twistStampedCB(geometry_msgs::TwistStampedConstPtr msg)
 {
   const std::lock_guard<std::mutex> lock(latest_state_mutex_);
-  latest_twist_stamped_ = msg;
+  latest_twist_stamped_ = std::move(msg);
   latest_nonzero_twist_stamped_ = isNonZero(*latest_twist_stamped_);
 
   if (msg->header.stamp != ros::Time(0.))
     latest_command_stamp_ = msg->header.stamp;
 }
 
-void JogCalcs::jointJogCB(const control_msgs::JointJogConstPtr& msg)
+void JogCalcs::jointJogCB(control_msgs::JointJogConstPtr msg)
 {
   const std::lock_guard<std::mutex> lock(latest_state_mutex_);
-  latest_joint_jog_ = msg;
+  latest_joint_jog_ = std::move(msg);
   latest_nonzero_joint_jog_ = isNonZero(*latest_joint_jog_);
 
   if (msg->header.stamp != ros::Time(0.))
     latest_command_stamp_ = msg->header.stamp;
 }
 
-void JogCalcs::collisionVelocityScaleCB(const std_msgs::Float64ConstPtr& msg)
+void JogCalcs::collisionVelocityScaleCB(std_msgs::Float64ConstPtr msg)
 {
   collision_velocity_scale_ = msg->data;
 }

@@ -166,12 +166,12 @@ private:
   void removeDimension(Eigen::MatrixXd& matrix, Eigen::VectorXd& delta_x, const unsigned int row_to_remove);
 
   /* \brief Callback for joint subsription */
-  void jointStateCB(const sensor_msgs::JointStateConstPtr& msg);
+  void jointStateCB(sensor_msgs::JointStateConstPtr msg);
 
   /* \brief Command callbacks */
-  void twistStampedCB(const geometry_msgs::TwistStampedConstPtr& msg);
-  void jointJogCB(const control_msgs::JointJogConstPtr& msg);
-  void collisionVelocityScaleCB(const std_msgs::Float64ConstPtr& msg);
+  void twistStampedCB(geometry_msgs::TwistStampedConstPtr msg);
+  void jointJogCB(control_msgs::JointJogConstPtr msg);
+  void collisionVelocityScaleCB(std_msgs::Float64ConstPtr msg);
 
   /**
    * Allow drift in certain dimensions. For example, may allow the wrist to rotate freely.
