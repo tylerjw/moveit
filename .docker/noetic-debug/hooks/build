@@ -1,0 +1,16 @@
+#!/bin/bash
+set -ex
+
+export FROM_IMAGE=ros:noetic-ros-base
+export FAIL_ON_BUILD_FAILURE=""
+export CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON\
+ -DCMAKE_CXX_FLAGS='--coverage' -DCMAKE_C_FLAGS='--coverage'"
+export ROS_REPO="ros"
+
+docker build \
+    --tag ${IMAGE_NAME} \
+    --build-arg FROM_IMAGE \
+    --build-arg FAIL_ON_BUILD_FAILURE \
+    --build-arg CMAKE_ARGS \
+    --build-arg ROS_REPO \
+    --file ../../Dockerfile ../../.

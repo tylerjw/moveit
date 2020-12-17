@@ -1,0 +1,16 @@
+# This file is intended for users who want to build MoveIt from source.
+# These are projects that the moveit project depends on.
+# These repos should be included in the workspace or in an overlay
+#  when building moveit.
+- git:
+    local-name: moveit_msgs
+    uri: https://github.com/ros-planning/moveit_msgs.git
+    version: master
+- git:
+    local-name: moveit_resources
+    uri: https://github.com/ros-planning/moveit_resources.git
+    version: master
+- git:
+    local-name: geometric_shapes
+    uri: https://github.com/ros-planning/geometric_shapes.git
+    version: noetic-devel
