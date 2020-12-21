@@ -7,7 +7,9 @@
 #   --build-arg ROS_REPO="ros" \
 #   --build-arg BUILDKIT_INLINE_CACHE=1 ./
 ARG FROM_IMAGE=ros:noetic-ros-base
-ARG CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+ARG UPSTREAM_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+ARG TARGET_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+ARG DOWNSTREAM_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
 ARG ROS_REPO="ros"
 ARG UPSTREAM_WS=/root/moveit/upstream
 ARG TARGET_WS=/root/moveit/target
@@ -80,11 +82,14 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     rm -rf /var/lib/apt/lists/*
 
 # build upstream source
-ARG CMAKE_ARGS
+ARG UPSTREAM_CMAKE_ARGS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $UPSTREAM_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    catkin config --extend /opt/ros/$ROS_DISTRO --install --cmake-args $CMAKE_ARGS && \
+    catkin config \
+      --extend /opt/ros/$ROS_DISTRO \
+      --install \
+      --cmake-args $UPSTREAM_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
@@ -105,12 +110,15 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # build target source
 ARG UPSTREAM_WS
 ARG TARGET_WS
-ARG CMAKE_ARGS
+ARG TARGET_CMAKE_ARGS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $TARGET_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     . $UPSTREAM_WS/install/setup.sh && \
-    catkin config --extend $UPSTREAM_WS/install --install --cmake-args $CMAKE_ARGS && \
+    catkin config \
+      --extend $UPSTREAM_WS/install \
+      --install \
+      --cmake-args $TARGET_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
@@ -133,13 +141,16 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # build downstream source
 ARG UPSTREAM_WS
 ARG TARGET_WS
-ARG CMAKE_ARGS
+ARG DOWNSTREAM_CMAKE_ARGS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $DOWNSTREAM_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     . $UPSTREAM_WS/install/setup.sh && \
     . $TARGET_WS/install/setup.sh && \
-    catkin config --extend $TARGET_WS/install --install --cmake-args $CMAKE_ARGS && \
+    catkin config \
+      --extend $TARGET_WS/install \
+      --install \
+      --cmake-args $DOWNSTREAM_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 

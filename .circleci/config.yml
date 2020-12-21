@@ -1,0 +1,446 @@
+version: 2.1
+
+_commands:
+  common_commands: &common_commands
+    restore_from_cache:
+      description: "Restore From Cache"
+      parameters:
+        key:
+          type: string
+        workspace:
+          type: string
+      steps:
+        - restore_cache:
+            name: Restore Cache << parameters.key >>
+            key: "<< parameters.key >>-v1\
+              -{{ arch }}\
+              -{{ .Branch }}\
+              -{{ .Environment.CIRCLE_PR_NUMBER }}\
+              -{{ checksum  \"<< parameters.workspace >>/checksum.txt\" }}"
+    save_to_cache:
+      description: "Save To Cache"
+      parameters:
+        key:
+          type: string
+        workspace:
+          type: string
+        path:
+          type: string
+        when:
+          type: string
+          default: on_success
+      steps:
+        - save_cache:
+            name: Save Cache << parameters.key >>
+            key: "<< parameters.key >>-v1\
+              -{{ arch }}\
+              -{{ .Branch }}\
+              -{{ .Environment.CIRCLE_PR_NUMBER }}\
+              -{{ checksum  \"<< parameters.workspace >>/checksum.txt\" }}\
+              -{{ epoch }}"
+            paths:
+              - << parameters.path >>
+            when: << parameters.when >>
+    install_dependencies:
+      description: "Install Dependencies"
+      parameters:
+        upstream:
+          type: string
+        workspace:
+          type: string
+      steps:
+        - run:
+            name: Install Dependencies | << parameters.workspace >>
+            working_directory: << parameters.workspace >>
+            command: |
+              . << parameters.upstream >>/install/setup.sh
+              cat << parameters.upstream >>/checksum.txt > checksum.txt
+              vcs export --exact src | \
+                (echo vcs_export && cat) >> checksum.txt
+              sha256sum $PWD/checksum.txt >> checksum.txt
+              apt-get update
+              rosdep update
+
+              # workarround for OMPL and rosdep
+              # https://github.com/ompl/ompl/issues/753
+              # Prevent searching $ROS_WS/install given it's too big for rosdep
+
+              if [ "$ROS_WS" == "<< parameters.upstream >>" ]; then
+                upstream_ws=""
+              else
+                upstream_ws=<< parameters.upstream >>/src
+              fi
+              echo upstream_ws = $upstream_ws
+
+              dependencies=$(
+                rosdep install -q -y \
+                  --from-paths src \
+                    $upstream_ws \
+                  --ignore-src \
+                  --skip-keys " \
+                    slam_toolbox \
+                    " \
+                  --verbose | \
+                awk '$1 ~ /^resolution\:/' | \
+                awk -F'[][]' '{print $2}' | \
+                tr -d \, | xargs -n1 | sort -u | xargs)
+              dpkg -s $dependencies | \
+                (echo workspace_dependencies && cat) >> checksum.txt
+              sha256sum $PWD/checksum.txt >> checksum.txt
+    setup_workspace:
+      description: "Setup Workspace"
+      parameters:
+        upstream:
+          type: string
+        key:
+          type: string
+        workspace:
+          type: string
+        cmake_args:
+          type: string
+        build:
+          default: true
+          type: boolean
+      steps:
+        - store_artifacts:
+            path: << parameters.workspace >>/checksum.txt
+        - restore_from_cache:
+            key: << parameters.key >>
+            workspace: << parameters.workspace >>
+        - when:
+            condition: << parameters.build >>
+            steps:
+              - run:
+                  name: Build Workspace | << parameters.workspace >>
+                  working_directory: << parameters.workspace >>
+                  command: |
+                    . << parameters.upstream >>/install/setup.sh
+                    catkin clean -y
+                    catkin config \
+                      --extend << parameters.upstream >>/install \
+                      --install \
+                      --cmake-args << parameters.cmake_args >>
+                    catkin build --summarize
+                    catkin build --summarize --make-args tests
+              - save_to_cache:
+                  key: << parameters.key >>
+                  path: << parameters.workspace >>
+                  workspace: << parameters.workspace >>
+              - run:
+                  name: Copy Build Logs
+                  working_directory: << parameters.workspace >>
+                  command: cp -rH log/latest_build log/build
+                  when: always
+              - store_artifacts:
+                    path: << parameters.workspace >>/log/build
+    test_workspace:
+      description: "Test Workspace"
+      parameters:
+        workspace:
+          type: string
+      steps:
+        - run:
+            name: Test Workspace | << parameters.workspace >>
+            working_directory: << parameters.workspace >>
+            command: |
+              . install/setup.sh
+              catkin build --summarize --catkin-make-args run_test
+              catkin_test_results --verbose
+        - run:
+            name: Copy Test Logs
+            working_directory: << parameters.workspace >>
+            command: cp -rH log/latest_test log/test
+            when: always
+        - store_artifacts:
+            path: << parameters.workspace >>/log/test
+        - run:
+            name: Copy Test Results
+            working_directory: << parameters.workspace >>
+            command: |
+              mkdir test_results/
+              cp -rH build/*/test_results/* test_results
+            when: always
+        - store_test_results:
+            path: << parameters.workspace >>/test_results
+        - store_artifacts:
+            path: << parameters.workspace >>/test_results
+    trigger_dockerhub_url:
+      description: "Trigger Dockerhub URL"
+      parameters:
+        data:
+          type: string
+      steps:
+        - run:
+            command: |
+              curl -H "Content-Type: application/json" \
+                --data '<< parameters.data >>' \
+                -X POST ${DOCKERHUB_TRIGGER_URL}
+
+_steps:
+  pre_checkout: &pre_checkout
+    run:
+      name: Pre Checkout
+      command: |
+        mkdir -p $ROS_WS && cd $ROS_WS
+        ln -s /opt/ros/$ROS_DISTRO install
+        echo $CACHE_NONCE | \
+          (echo cache_nonce && cat) >> checksum.txt
+        sha256sum $PWD/checksum.txt >> checksum.txt
+        TZ=utc stat -c '%y' /ros_entrypoint.sh | \
+          (echo ros_entrypoint && cat) >> checksum.txt
+        sha256sum $PWD/checksum.txt >> checksum.txt
+        rm -rf $TARGET_WS/*
+        mv ~/.ccache /mnt/ramdisk/.ccache
+  on_checkout: &on_checkout
+    checkout:
+      path: src/moveit
+  post_checkout: &post_checkout
+    run:
+      name: Post Checkout
+      command: |
+        if ! cmp \
+          $TARGET_WS/src/moveit/tools/upstream.rosinstall \
+          $UPSTREAM_WS/upstream.rosinstall >/dev/null 2>&1
+        then
+          echo "Cleaning Underlay"
+          rm -rf $UPSTREAM_WS/*
+          cp $TARGET_WS/src/moveit/tools/upstream.rosinstall \
+            $UPSTREAM_WS/upstream.rosinstall
+          mkdir -p $UPSTREAM_WS/src
+          vcs import $UPSTREAM_WS/src \
+            < $UPSTREAM_WS/upstream.rosinstall
+        fi
+  install_upstream_dependencies: &install_upstream_dependencies
+    install_dependencies:
+      upstream: /opt/ros_ws
+      workspace: /root/moveit/upstream
+  restore_ccache: &restore_ccache
+    restore_from_cache:
+      key: ccache
+      workspace: /root/moveit/upstream
+  ccache_stats: &ccache_stats
+    run:
+      name: CCache Stats
+      command: |
+        ccache -s # show stats
+        ccache -z # zero stats
+        ccache -V # show version
+        ccache -p # show config
+  setup_upstream_workspace: &setup_upstream_workspace
+    setup_workspace: &setup_workspace_upstream
+      key: upstream_ws
+      upstream: /opt/ros_ws
+      workspace: /root/moveit/upstream
+      cmake_args: ${UPSTREAM_CMAKE_ARGS}
+  restore_upstream_workspace: &restore_upstream_workspace
+    setup_workspace:
+      <<: *setup_workspace_upstream
+      build: false
+  install_target_dependencies: &install_target_dependencies
+    install_dependencies:
+      upstream: /root/moveit/upstream
+      workspace: /root/moveit/target
+  setup_target_workspace: &setup_target_workspace
+    setup_workspace: &setup_workspace_target
+      key: target_ws
+      upstream: /root/moveit/upstream
+      workspace: /root/moveit/target
+      cmake_args: ${TARGET_CMAKE_ARGS}
+  restore_target_workspace: &restore_target_workspace
+    setup_workspace:
+      <<: *setup_workspace_target
+      build: false
+  store_ccache_logs: &store_ccache_logs
+    store_artifacts:
+        path: /tmp/ccache.log
+  save_ccache: &save_ccache
+    save_to_cache:
+      key: ccache
+      workspace: /root/moveit/upstream
+      path: /mnt/ramdisk/.ccache
+      when: always
+  test_target_workspace: &test_target_workspace
+    test_workspace:
+      workspace: /root/moveit/target
+  collect_target_coverage: &collect_target_coverage
+    run:
+      name: Collect Code Coverage
+      working_directory: /root/moveit/target
+      command: src/moveit/tools/code_coverage_report.bash ci
+      when: always
+  upload_target_coverage: &upload_target_coverage
+    run:
+      name: Upload Code Coverage
+      working_directory: /root/moveit/target
+      command: |
+        curl -s https://codecov.io/bash | bash -s -- \
+          -f "lcov/project_coverage.info" \
+          -R "src/moveit" \
+          -t "${CODECOV_TOKEN}" \
+          -n "${CIRCLE_BUILD_NUM}" \
+          -F "project" \
+          -Z || echo 'Codecov upload failed'
+      when: always
+  trigger_dockerhub_build: &trigger_dockerhub_build
+    trigger_dockerhub_url:
+        data: |
+          {
+            "source_type": "Branch",
+            "source_name": "main"
+          }
+
+commands:
+  <<: *common_commands
+  checkout_source:
+    description: "Checkout Source"
+    steps:
+      - *pre_checkout
+      - *on_checkout
+      - *post_checkout
+  setup_dependencies:
+    description: "Setup Dependencies"
+    steps:
+      - *install_upstream_dependencies
+      - *restore_ccache
+      - *ccache_stats
+      - *setup_upstream_workspace
+      - *ccache_stats
+      - *install_target_dependencies
+  build_source:
+    description: "Build Source"
+    steps:
+      - *setup_target_workspace
+      - *store_ccache_logs
+      - *ccache_stats
+      - *save_ccache
+  restore_build:
+    description: "Restore Build"
+    steps:
+      - checkout_source
+      - *install_upstream_dependencies
+      - *restore_upstream_workspace
+      - *install_target_dependencies
+      - *restore_target_workspace
+  test_build:
+    description: "Test Build"
+    steps:
+      - *test_target_workspace
+  report_coverage:
+    description: "Report Coverage"
+    steps:
+      - *collect_target_coverage
+      - *upload_target_coverage
+  trigger_dockerhub:
+    description: "Trigger DockerHub"
+    steps:
+      - *trigger_dockerhub_build
+
+_environments:
+  common_environment: &common_environment
+    ROS_WS: "/opt/ros_ws"
+    UPSTREAM_WS: "/root/moveit/upstream"
+    TARGET_WS: "/root/moveit/target"
+    CCACHE_DIR: "/mnt/ramdisk/.ccache"
+    CCACHE_LOGFILE: "/tmp/ccache.log"
+    CCACHE_MAXSIZE: "200M"
+    MAKEFLAGS: "-j 1 -l 2"
+    RCUTILS_CONSOLE_STDOUT_LINE_BUFFERED: "0"
+    RETEST_UNTIL_PASS: "2"
+    DEBIAN_FRONTEND: "noninteractive"
+
+executors:
+  debug_exec:
+    docker:
+      - image: tylerjw/moveit:build_in_docker.noetic-debug
+    working_directory: /root/moveit/target
+    environment:
+      <<: *common_environment
+      CACHE_NONCE: "Debug"
+      TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_CXX_FLAGS='--coverage' -DCMAKE_C_FLAGS='--coverage'"
+      UPSTREAM_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release"
+  release_exec:
+    docker:
+      - image: tylerjw/moveit:build_in_docker.noetic-release
+    working_directory: /root/moveit/target
+    environment:
+      <<: *common_environment
+      CACHE_NONCE: "Release"
+      TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release"
+      UPSTREAM_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release"
+  python_exec:
+    docker:
+      - image: circleci/python
+
+jobs:
+  debug_build: &debug_build
+    executor: debug_exec
+    steps:
+      - checkout_source
+      - setup_dependencies
+      - build_source
+  release_build:
+    executor: release_exec
+    <<: *debug_build
+  debug_test:
+    parallelism: 1
+    executor: debug_exec
+    steps:
+      - restore_build
+      - test_build
+      - report_coverage
+  release_test:
+    parallelism: 1
+    executor: release_exec
+    steps:
+      - restore_build
+      - test_build
+  rebuild_dockerhub:
+    executor: python_exec
+    steps:
+      - trigger_dockerhub
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - debug_build
+      - debug_test:
+          requires:
+            - debug_build
+      - release_build
+      - release_test:
+          requires:
+            - release_build
+  # nightly:
+  #   jobs:
+  #     - debug_build
+  #     - debug_test:
+  #         requires:
+  #           - debug_build
+  #     - release_build
+  #     - release_test:
+  #         requires:
+  #           - release_build
+  #         matrix:
+  #           parameters:
+  #             rmw:
+  #               # - rmw_connext_cpp
+  #               - rmw_cyclonedds_cpp
+  #               - rmw_fastrtps_cpp
+  #   triggers:
+  #     - schedule:
+  #         cron: "0 13 * * *"
+  #         filters:
+  #           branches:
+  #             only:
+  #               - main
+  # dockerhub:
+  #   jobs:
+  #     - rebuild_dockerhub
+  #   triggers:
+  #     - schedule:
+  #         cron: "0 7 * * *"
+  #         filters:
+  #           branches:
+  #             only:
+  #               - main

@@ -3,7 +3,9 @@ set -ex
 
 export FROM_IMAGE=ros:noetic-ros-base
 export FAIL_ON_BUILD_FAILURE=""
-export CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+export UPSTREAM_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+export TARGET_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+export DOWNSTREAM_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
 export ROS_REPO="ros"
 export CC="clang"
 export CXX="clang++"
@@ -12,7 +14,9 @@ docker build \
     --tag ${IMAGE_NAME} \
     --build-arg FROM_IMAGE \
     --build-arg FAIL_ON_BUILD_FAILURE \
-    --build-arg CMAKE_ARGS \
+    --build-arg UPSTREAM_CMAKE_ARGS \
+    --build-arg TARGET_CMAKE_ARGS \
+    --build-arg DOWNSTREAM_CMAKE_ARGS \
     --build-arg ROS_REPO \
     --build-arg CC \
     --build-arg CXX \
