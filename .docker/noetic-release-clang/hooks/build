@@ -20,4 +20,5 @@ docker build \
     --build-arg ROS_REPO \
     --build-arg CC \
     --build-arg CXX \
+    --build-arg BUILDKIT_INLINE_CACHE=1 \
     --file ../../Dockerfile ../../.

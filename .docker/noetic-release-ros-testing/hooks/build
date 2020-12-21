@@ -16,4 +16,5 @@ docker build \
     --build-arg TARGET_CMAKE_ARGS \
     --build-arg DOWNSTREAM_CMAKE_ARGS \
     --build-arg ROS_REPO \
+    --build-arg BUILDKIT_INLINE_CACHE=1 \
     --file ../../Dockerfile ../../.
