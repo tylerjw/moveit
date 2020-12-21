@@ -63,6 +63,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG CATKIN_DEBS
 RUN apt-get update && apt-get install -qq -y \
       clang clang-format-10 clang-tidy clang-tools ccache lcov \
+      wget git sudo python3-vcstool \
       $CATKIN_DEBS && \
       /usr/sbin/update-ccache-symlinks && \
       echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a /opt/ros/$ROS_DISTRO/setup.sh && \
