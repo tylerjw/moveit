@@ -63,6 +63,8 @@ ARG CATKIN_DEBS
 RUN apt-get update && apt-get install -qq -y \
       clang clang-format-10 clang-tidy clang-tools ccache lcov \
       $CATKIN_DEBS && \
+      /usr/sbin/update-ccache-symlinks && \
+      echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a ~/.bashrc && \
     rm -rf /var/lib/apt/lists/*
 
 # Set compiler using enviroment variable
