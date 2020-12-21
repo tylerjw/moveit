@@ -119,7 +119,7 @@ _commands:
                     catkin config \
                       --extend << parameters.upstream >>/install \
                       --install \
-                      --cmake-args << parameters.cmake_args >>
+                      --cmake-args $CCACHE_CMAKE_ARGS << parameters.cmake_args >>
                     catkin build --summarize
                     catkin build --summarize --make-args tests
               - save_to_cache:
@@ -342,11 +342,12 @@ _environments:
     TARGET_WS: "/root/moveit/target"
     CCACHE_DIR: "/mnt/ramdisk/.ccache"
     CCACHE_LOGFILE: "/tmp/ccache.log"
-    CCACHE_MAXSIZE: "200M"
+    CCACHE_MAXSIZE: "300M"
     MAKEFLAGS: "-j 1 -l 2"
     RCUTILS_CONSOLE_STDOUT_LINE_BUFFERED: "0"
     RETEST_UNTIL_PASS: "2"
     DEBIAN_FRONTEND: "noninteractive"
+    CCACHE_CMAKE_ARGS: "-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
 executors:
   debug_exec:

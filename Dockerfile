@@ -18,6 +18,7 @@ ARG FAIL_ON_BUILD_FAILURE=True
 ARG CATKIN_DEBS="python3-catkin-tools python3-osrf-pycommon"
 ARG CC=""
 ARG CXX=""
+ARG CCACHE_CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
 # multi-stage for caching
 FROM $FROM_IMAGE AS cacher
@@ -64,7 +65,7 @@ RUN apt-get update && apt-get install -qq -y \
       clang clang-format-10 clang-tidy clang-tools ccache lcov \
       $CATKIN_DEBS && \
       /usr/sbin/update-ccache-symlinks && \
-      echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a ~/.bashrc && \
+      echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a /opt/ros/$ROS_DISTRO/setup.sh && \
     rm -rf /var/lib/apt/lists/*
 
 # Set compiler using enviroment variable
@@ -85,13 +86,14 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 
 # build upstream source
 ARG UPSTREAM_CMAKE_ARGS
+ARG CCACHE_CMAKE_ARGS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $UPSTREAM_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     catkin config \
       --extend /opt/ros/$ROS_DISTRO \
       --install \
-      --cmake-args $UPSTREAM_CMAKE_ARGS && \
+      --cmake-args $CCACHE_CMAKE_ARGS $UPSTREAM_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
@@ -113,6 +115,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 ARG UPSTREAM_WS
 ARG TARGET_WS
 ARG TARGET_CMAKE_ARGS
+ARG CCACHE_CMAKE_ARGS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $TARGET_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -120,7 +123,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     catkin config \
       --extend $UPSTREAM_WS/install \
       --install \
-      --cmake-args $TARGET_CMAKE_ARGS && \
+      --cmake-args $CCACHE_CMAKE_ARGS $TARGET_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
@@ -144,6 +147,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 ARG UPSTREAM_WS
 ARG TARGET_WS
 ARG DOWNSTREAM_CMAKE_ARGS
+ARG CCACHE_CMAKE_ARGS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $DOWNSTREAM_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
@@ -152,7 +156,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
     catkin config \
       --extend $TARGET_WS/install \
       --install \
-      --cmake-args $DOWNSTREAM_CMAKE_ARGS && \
+      --cmake-args $CCACHE_CMAKE_ARGS $DOWNSTREAM_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
