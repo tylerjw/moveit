@@ -131,7 +131,7 @@ _commands:
                   working_directory: << parameters.workspace >>
                   command: |
                     mkdir -p log/build
-                    mv -rH logs/* log/build/
+                    mv logs/* log/build/
                   when: always
               - store_artifacts:
                     path: << parameters.workspace >>/log/build
@@ -153,7 +153,7 @@ _commands:
             working_directory: << parameters.workspace >>
             command: |
               mkdir -p log/test
-              mv -rH logs/* log/test/
+              mv logs/* log/test/
             when: always
         - store_artifacts:
             path: << parameters.workspace >>/log/test
