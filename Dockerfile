@@ -126,6 +126,8 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
       --install \
       --cmake-args $CCACHE_CMAKE_ARGS $TARGET_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
+      || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1) && \
+    catkin build --summarize --make-args tests \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
 # install downstream dependencies
@@ -159,5 +161,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
       --install \
       --cmake-args $CCACHE_CMAKE_ARGS $DOWNSTREAM_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
+      || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1) && \
+    catkin build --summarize --make-args tests \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
