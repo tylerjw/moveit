@@ -63,15 +63,14 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG CATKIN_DEBS
 RUN apt-get update && apt-get install -qq -y \
       clang clang-format-10 clang-tidy clang-tools ccache lcov \
-      wget git sudo python3-vcstool \
-      $CATKIN_DEBS && \
+      wget git sudo python3-vcstool $CATKIN_DEBS && \
       /usr/sbin/update-ccache-symlinks && \
-      echo 'export PATH="/usr/lib/ccache:$PATH"' | tee -a /opt/ros/$ROS_DISTRO/setup.sh && \
     rm -rf /var/lib/apt/lists/*
 
 # Set compiler using enviroment variable
 ENV CC $CC
 ENV CXX $CXX
+ENV CCACHE_MAXSIZE "200M"
 
 # install upstream dependencies
 ARG UPSTREAM_WS
@@ -127,7 +126,8 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
       --cmake-args $CCACHE_CMAKE_ARGS $TARGET_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1) && \
-    catkin build --summarize --make-args tests \
+    catkin build --limit-status-rate 0.001 --no-notify \
+      --summarize --make-args tests \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
 # install downstream dependencies
@@ -162,6 +162,7 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
       --cmake-args $CCACHE_CMAKE_ARGS $DOWNSTREAM_CMAKE_ARGS && \
     catkin build --limit-status-rate 0.001 --no-notify \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1) && \
-    catkin build --summarize --make-args tests \
+    catkin build --limit-status-rate 0.001 --no-notify \
+      --summarize --make-args tests \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 

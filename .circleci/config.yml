@@ -120,8 +120,9 @@ _commands:
                       --extend << parameters.upstream >>/install \
                       --install \
                       --cmake-args $CCACHE_CMAKE_ARGS << parameters.cmake_args >>
-                    catkin build --summarize
-                    catkin build --summarize --make-args tests
+                    catkin build --limit-status-rate 0.001 --no-notify --summarize
+                    catkin build --limit-status-rate 0.001 --no-notify --summarize \
+                      --make-args tests
               - save_to_cache:
                   key: << parameters.key >>
                   path: << parameters.workspace >>
@@ -146,7 +147,8 @@ _commands:
             working_directory: << parameters.workspace >>
             command: |
               . install/setup.sh
-              catkin build --summarize --catkin-make-args run_testsS
+              catkin build --limit-status-rate 0.001 --no-notify \
+                --summarize --catkin-make-args run_tests
               catkin_test_results --verbose
         - run:
             name: Copy Test Logs
@@ -346,7 +348,7 @@ _environments:
     TARGET_WS: "/root/moveit/target"
     CCACHE_DIR: "/mnt/ramdisk/.ccache"
     CCACHE_LOGFILE: "/tmp/ccache.log"
-    CCACHE_MAXSIZE: "300M"
+    CCACHE_MAXSIZE: "200M"
     MAKEFLAGS: "-j 1 -l 2"
     RCUTILS_CONSOLE_STDOUT_LINE_BUFFERED: "0"
     RETEST_UNTIL_PASS: "2"
