@@ -121,8 +121,6 @@ _commands:
                       --install \
                       --cmake-args $CCACHE_CMAKE_ARGS << parameters.cmake_args >>
                     catkin build --limit-status-rate 0.001 --no-notify --summarize
-                    catkin build --limit-status-rate 0.001 --no-notify --summarize \
-                      --make-args tests
               - save_to_cache:
                   key: << parameters.key >>
                   path: << parameters.workspace >>
@@ -147,6 +145,8 @@ _commands:
             working_directory: << parameters.workspace >>
             command: |
               . install/setup.sh
+              catkin build --limit-status-rate 0.001 --no-notify --summarize \
+                --make-args tests
               catkin build --limit-status-rate 0.001 --no-notify \
                 --summarize --catkin-make-args run_tests
               catkin_test_results --verbose
