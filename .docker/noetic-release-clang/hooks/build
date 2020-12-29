@@ -3,16 +3,12 @@ set -ex
 
 export FROM_IMAGE=ros:noetic-ros-base
 export FAIL_ON_BUILD_FAILURE=""
-export TARGET_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-export CC="clang"
-export CXX="clang++"
+export TARGET_MIXINS="release ccache compile-commands clang-libcxx"
 
 docker build \
     --tag ${IMAGE_NAME} \
     --build-arg FROM_IMAGE \
     --build-arg FAIL_ON_BUILD_FAILURE \
-    --build-arg TARGET_CMAKE_ARGS \
-    --build-arg CC \
-    --build-arg CXX \
+    --build-arg TARGET_MIXINS \
     --build-arg BUILDKIT_INLINE_CACHE=1 \
     --file ../../Dockerfile ../../.

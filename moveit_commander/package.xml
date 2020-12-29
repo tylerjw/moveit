@@ -23,6 +23,8 @@
   <depend condition="$ROS_PYTHON_VERSION == 2">python</depend>
   <depend condition="$ROS_PYTHON_VERSION == 3">python3</depend>
 
+  <depend>moveit_ros_planning_interface</depend>
+
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>moveit_msgs</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
@@ -34,5 +36,6 @@
   <exec_depend>tf</exec_depend>
 
   <test_depend>rostest</test_depend>
+  <test_depend>moveit_ros_planning_interface</test_depend>
   <test_depend>moveit_resources_fanuc_moveit_config</test_depend>
 </package>

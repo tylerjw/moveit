@@ -3,13 +3,12 @@ set -ex
 
 export FROM_IMAGE=ros:noetic-ros-base
 export FAIL_ON_BUILD_FAILURE=""
-export TARGET_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON\
- -DCMAKE_CXX_FLAGS='--coverage' -DCMAKE_C_FLAGS='--coverage'"
+export TARGET_MIXINS="debug ccache coverage-gcc"
 
 docker build \
     --tag ${IMAGE_NAME} \
     --build-arg FROM_IMAGE \
     --build-arg FAIL_ON_BUILD_FAILURE \
-    --build-arg TARGET_CMAKE_ARGS \
+    --build-arg TARGET_MIXINS \
     --build-arg BUILDKIT_INLINE_CACHE=1 \
     --file ../../Dockerfile ../../.

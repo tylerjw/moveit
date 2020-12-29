@@ -32,7 +32,8 @@
 #
 # Author: Ioan Sucan
 
-from moveit_ros_planning_interface import _moveit_roscpp_initializer
+# from moveit_ros_planning_interface import _moveit_roscpp_initializer
+from moveit_ros_planning_interface import *
 
 def roscpp_initialize(args):
     # remove __name:= argument

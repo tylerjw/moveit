@@ -27,6 +27,8 @@ catkin_package(
     actionlib
     controller_manager_msgs
     moveit_core
+    moveit_simple_controller_manager
+    pluginlib
     trajectory_msgs
   DEPENDS Boost
 )

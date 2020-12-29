@@ -2,13 +2,11 @@
 set -ex
 
 export FROM_IMAGE=ros:melodic-ros-base
-export CATKIN_DEBS="python-catkin-tools"
 export FAIL_ON_BUILD_FAILURE=""
 
 docker build \
     --tag ${IMAGE_NAME} \
     --build-arg FROM_IMAGE \
-    --build-arg CATKIN_DEBS \
     --build-arg FAIL_ON_BUILD_FAILURE \
     --build-arg BUILDKIT_INLINE_CACHE=1 \
     --file ../../Dockerfile ../../.

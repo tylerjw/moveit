@@ -2,23 +2,24 @@
 # Build context must be the /moveit root folder for COPY.
 # Example build command:
 # export DOCKER_BUILDKIT=1
+# export UPSTREAM_MIXINS="debug ccache"
+# export TARGET_MIXINS="debug ccache coverage"
+# export DOWNSTREAM_MIXINS="debug ccache"
 # docker build -t moveit:latest \
-#   --build-arg CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release" \
+#   --build-arg UPSTREAM_MIXINS \
+#   --build-arg TARGET_MIXINS \
+#   --build-arg DOWNSTREAM_MIXINS \
 #   --build-arg ROS_REPO="ros" \
 #   --build-arg BUILDKIT_INLINE_CACHE=1 ./
 ARG FROM_IMAGE=ros:noetic-ros-base
-ARG UPSTREAM_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
-ARG TARGET_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
-ARG DOWNSTREAM_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+ARG UPSTREAM_MIXINS="release ccache"
+ARG TARGET_MIXINS="release ccache"
+ARG DOWNSTREAM_MIXINS="release ccache"
 ARG ROS_REPO="ros"
 ARG UPSTREAM_WS=/root/moveit/upstream
 ARG TARGET_WS=/root/moveit/target
 ARG DOWNSTREAM_WS=/root/moveit/downstream
 ARG FAIL_ON_BUILD_FAILURE=True
-ARG CATKIN_DEBS="python3-catkin-tools python3-osrf-pycommon"
-ARG CC=""
-ARG CXX=""
-ARG CCACHE_CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
 # multi-stage for caching
 FROM $FROM_IMAGE AS cacher
@@ -60,109 +61,96 @@ FROM $FROM_IMAGE AS builder
 ARG DEBIAN_FRONTEND=noninteractive
 
 # install build dependencies
-ARG CATKIN_DEBS
-RUN apt-get update && apt-get install -qq -y \
+ARG ROS_REPO
+RUN echo "deb http://packages.ros.org/$ROS_REPO/ubuntu `lsb_release -cs` main" | \
+      tee /etc/apt/sources.list.d/ros1-latest.list && \
+    apt-get update && apt-get install -qq -y \
       clang clang-format-10 clang-tidy clang-tools ccache lcov \
-      wget git sudo python3-vcstool $CATKIN_DEBS && \
+      wget git sudo ninja-build python3-vcstool \
+      python3-colcon-common-extensions python3-colcon-mixin && \
       /usr/sbin/update-ccache-symlinks && \
+      colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml && \
+      colcon mixin update default && \
     rm -rf /var/lib/apt/lists/*
-
-# Set compiler using enviroment variable
-ENV CC $CC
-ENV CXX $CXX
-ENV CCACHE_MAXSIZE "200M"
 
 # install upstream dependencies
 ARG UPSTREAM_WS
-ARG ROS_REPO
 WORKDIR $UPSTREAM_WS
 COPY --from=cacher /tmp/$UPSTREAM_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    echo "deb http://packages.ros.org/$ROS_REPO/ubuntu `lsb_release -cs` main" | \
-      tee /etc/apt/sources.list.d/ros1-latest.list && \
     apt-get update && rosdep install -q -y \
       --from-paths src --ignore-src && \
     rm -rf /var/lib/apt/lists/*
 
 # build upstream source
-ARG UPSTREAM_CMAKE_ARGS
-ARG CCACHE_CMAKE_ARGS
+ARG UPSTREAM_MIXINS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $UPSTREAM_WS ./
 RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    catkin config \
-      --extend /opt/ros/$ROS_DISTRO \
-      --install \
-      --cmake-args $CCACHE_CMAKE_ARGS $UPSTREAM_CMAKE_ARGS && \
-    catkin build --limit-status-rate 0.001 --no-notify \
+    colcon build \
+      --symlink-install \
+      --cmake-args -G Ninja \
+      --catkin-skip-building-tests \
+      --mixin $UNDERLAY_MIXINS \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
 # install target dependencies
 ARG UPSTREAM_WS
 ARG TARGET_WS
-ARG ROS_REPO
 WORKDIR $TARGET_WS
 COPY --from=cacher /tmp/$TARGET_WS ./
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    . $UPSTREAM_WS/install/setup.sh && \
-    echo "deb http://packages.ros.org/$ROS_REPO/ubuntu `lsb_release -cs` main" | \
-      tee /etc/apt/sources.list.d/ros1-latest.list && \
+RUN . $UPSTREAM_WS/install/setup.sh && \
     apt-get update && rosdep install -q -y \
-      --from-paths src --ignore-src && \
+      --from-paths src $UPSTREAM_WS/src \
+      --ignore-src && \
     rm -rf /var/lib/apt/lists/*
 
 # build target source
 ARG UPSTREAM_WS
 ARG TARGET_WS
-ARG TARGET_CMAKE_ARGS
-ARG CCACHE_CMAKE_ARGS
+ARG TARGET_MIXINS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $TARGET_WS ./
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    . $UPSTREAM_WS/install/setup.sh && \
-    catkin config \
-      --extend $UPSTREAM_WS/install \
-      --install \
-      --cmake-args $CCACHE_CMAKE_ARGS $TARGET_CMAKE_ARGS && \
-    catkin build --limit-status-rate 0.001 --no-notify \
-      || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1) && \
-    catkin build --limit-status-rate 0.001 --no-notify \
-      --summarize --make-args tests \
+RUN . $UPSTREAM_WS/install/setup.sh && \
+    colcon build \
+      --symlink-install \
+      --cmake-args -G Ninja \
+      --mixin $TARGET_MIXINS \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
 # install downstream dependencies
 ARG UPSTREAM_WS
 ARG TARGET_WS
 ARG DOWNSTREAM_WS
-ARG ROS_REPO
 WORKDIR $DOWNSTREAM_WS
 COPY --from=cacher /tmp/$DOWNSTREAM_WS ./
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    . $UPSTREAM_WS/install/setup.sh && \
-    . $TARGET_WS/install/setup.sh && \
-    echo "deb http://packages.ros.org/$ROS_REPO/ubuntu `lsb_release -cs` main" | \
-      tee /etc/apt/sources.list.d/ros1-latest.list && \
+RUN . $TARGET_WS/install/setup.sh && \
     apt-get update && rosdep install -q -y \
-      --from-paths src --ignore-src && \
+      --from-paths src $UPSTREAM_WS/src $TARGET_WS/src \
+      --ignore-src && \
     rm -rf /var/lib/apt/lists/*
 
 # build downstream source
 ARG UPSTREAM_WS
 ARG TARGET_WS
-ARG DOWNSTREAM_CMAKE_ARGS
-ARG CCACHE_CMAKE_ARGS
+ARG DOWNSTREAM_MIXINS
 ARG FAIL_ON_BUILD_FAILURE
 COPY --from=cacher $DOWNSTREAM_WS ./
-RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
-    . $UPSTREAM_WS/install/setup.sh && \
-    . $TARGET_WS/install/setup.sh && \
-    catkin config \
-      --extend $TARGET_WS/install \
-      --install \
-      --cmake-args $CCACHE_CMAKE_ARGS $DOWNSTREAM_CMAKE_ARGS && \
-    catkin build --limit-status-rate 0.001 --no-notify \
-      || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1) && \
-    catkin build --limit-status-rate 0.001 --no-notify \
-      --summarize --make-args tests \
+RUN . $TARGET_WS/install/setup.sh && \
+    colcon build \
+      --symlink-install \
+      --cmake-args -G Ninja \
+      --mixin $DOWNSTREAM_MIXINS \
       || ([ -z "$FAIL_ON_BUILD_FAILURE" ] || exit 1)
 
+# test target build
+ARG RUN_TESTS
+ARG FAIL_ON_TEST_FAILURE=True
+ARG TARGET_WS
+WORKDIR $TARGET_WS
+RUN if [ -n "$RUN_TESTS" ]; then \
+        . install/setup.sh && \
+        colcon test && \
+        colcon test-result \
+          || ([ -z "$FAIL_ON_TEST_FAILURE" ] || exit 1) \
+    fi

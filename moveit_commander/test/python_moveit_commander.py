@@ -34,6 +34,9 @@
 #
 # Author: William Baker
 
+import pdb
+pdb.set_trace()
+
 import unittest
 
 import genpy
