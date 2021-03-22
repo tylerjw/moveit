@@ -19,11 +19,13 @@ jobs:
           }
           - {
             DOCKER_IMAGE: 'moveit/moveit:master-ci-shadow-fixed',
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RELEASE",
             CCOV_UPLOAD: false,
-            CATKIN_LINT: pedantic
+            CATKIN_LINT: true
           }
           - {
             DOCKER_IMAGE: 'moveit/moveit:melodic-ci',
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RELEASE",
             CCOV_UPLOAD: false,
             BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
           }
