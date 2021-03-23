@@ -41,11 +41,14 @@ jobs:
           echo "*** BEFORE ***"
           df -h | grep /dev/sd
           mount | grep /dev/sd
+          sudo apt-get -qq purge build-essential ghc*
           sudo apt-get clean
-          sudo ls -alR /mnt
           docker system prune -af
+          # Mount ${{ env.CCACHE_DIR }} from /mnt
+          sudo mkdir /mnt/ccache
+          mkdir ${{ env.CCACHE_DIR }}
+          sudo mount --bind ${{ env.CCACHE_DIR }} /mnt/ccache
           sudo rm -rf /usr/local/*
-          sudo mkdir /mnt/ccache; sudo mount --bind ${{ github.workspace }}/.ccache /mnt/ccache
           df -h | grep /dev/sd
       - uses: actions/checkout@v2
       - name: cache upstream_ws
