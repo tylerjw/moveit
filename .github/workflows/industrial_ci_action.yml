@@ -17,21 +17,22 @@ jobs:
             ADDITIONAL_DEBS: 'lcov',
             CCOV_UPLOAD: true
           }
-          # - {
-          #   DOCKER_IMAGE: 'moveit/moveit:master-ci-shadow-fixed',
-          #   TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
-          #   CCOV_UPLOAD: false,
-          #   CATKIN_LINT: true
-          # }
-          # - {
-          #   DOCKER_IMAGE: 'moveit/moveit:melodic-ci',
-          #   TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
-          #   CCOV_UPLOAD: false,
-          #   BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
-          # }
+          - {
+            DOCKER_IMAGE: 'moveit/moveit:master-ci-shadow-fixed',
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
+            CCOV_UPLOAD: false,
+            CATKIN_LINT: true
+          }
+          - {
+            DOCKER_IMAGE: 'moveit/moveit:melodic-ci',
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
+            CCOV_UPLOAD: false,
+            BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
+          }
     env:
       UPSTREAM_WORKSPACE: moveit.rosinstall
       AFTER_SETUP_UPSTREAM_WORKSPACE: 'vcs pull $BASEDIR/upstream_ws/src'
+      AFTER_INSTALL_TARGET_DEPENDENCIES: 'df -h && apt-get clean && rm -rf /var/lib/apt/lists/* && df -h'
       CCACHE_DIR: "${{ github.workspace }}/.ccache"
       BASEDIR: ${{ github.workspace }}/.work
       CACHE_PREFIX: "${{ matrix.env.DOCKER_IMAGE }}${{ matrix.env.CCOV_UPLOAD && '-ccov' || '' }}"
@@ -45,13 +46,13 @@ jobs:
           sudo apt-get clean
           df -h
       - uses: actions/checkout@v2
-      # - name: cache upstream_ws
-      #   uses: pat-s/always-upload-cache@v2.1.3
-      #   with:
-      #     path: ${{ env.BASEDIR }}/upstream_ws
-      #     key: upstream_ws-${{ env.CACHE_PREFIX }}-${{ hashFiles('moveit.rosinstall') }}-${{ github.run_id }}
-      #     restore-keys: |
-      #       upstream_ws-${{ env.CACHE_PREFIX }}-${{ hashFiles('moveit.rosinstall') }}
+      - name: cache upstream_ws
+        uses: pat-s/always-upload-cache@v2.1.3
+        with:
+          path: ${{ env.BASEDIR }}/upstream_ws
+          key: upstream_ws-${{ env.CACHE_PREFIX }}-${{ hashFiles('moveit.rosinstall') }}-${{ github.run_id }}
+          restore-keys: |
+            upstream_ws-${{ env.CACHE_PREFIX }}-${{ hashFiles('moveit.rosinstall') }}
       - name: cache ccache
         uses: pat-s/always-upload-cache@v2.1.3
         with:
