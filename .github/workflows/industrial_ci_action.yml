@@ -16,10 +16,8 @@ jobs:
     strategy:
       matrix:
         env:
-          - IMAGE: 'master-ci'
-            CCOV: true
-            ADITIONAL_DEBS: 'lcov'
-            # BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
+          - IMAGE: 'melodic-ci'
+            BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
     env:
       DOCKER_IMAGE: moveit/moveit:${{ matrix.env.IMAGE }}
       UPSTREAM_WORKSPACE: moveit.rosinstall
@@ -39,17 +37,19 @@ jobs:
       - name: "Free up disk space"
         run: |
           echo "*** BEFORE ***"
-          df -h | grep /dev/sd
-          mount | grep /dev/sd
+          df -h
           sudo apt-get -qq purge build-essential ghc*
           sudo apt-get clean
-          docker system prune -af
+          docker system prune -af  # We don't use the cached images
           # Mount ${{ env.CCACHE_DIR }} from /mnt
           sudo mkdir /mnt/ccache
           mkdir ${{ env.CCACHE_DIR }}
           sudo mount --bind ${{ env.CCACHE_DIR }} /mnt/ccache
           sudo rm -rf /usr/local/*
-          df -h | grep /dev/sd
+          echo "*** AFTER ***"
+          df -h
+          du -h -d 1 /opt
+          du -h -d 1 /usr/local
       - uses: actions/checkout@v2
       - name: cache upstream_ws
         uses: pat-s/always-upload-cache@v2.1.3
@@ -66,8 +66,6 @@ jobs:
           restore-keys: |
             ccache-${{ env.CACHE_PREFIX }}-${{ github.sha }}
             ccache-${{ env.CACHE_PREFIX }}
-      - name: industrial_ci
-        uses: 'ros-industrial/industrial_ci@master'
       - name: upload test artifacts (on failure)
         uses: actions/upload-artifact@v2
         if: failure()
