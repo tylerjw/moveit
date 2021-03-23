@@ -42,7 +42,7 @@ jobs:
       - name: free up disk space
         run: |
           df -h
-          sudo apt-get -qq purge build-essential libboost* mongodb* ghc* azure* google* libgl* hhvm dotnet* firefox adoptopenjdk*
+          sudo apt-get -qq purge build-essential
           sudo apt-get clean
           docker system prune -af
           df -h
