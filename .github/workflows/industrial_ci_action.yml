@@ -3,48 +3,52 @@
 
 name: BuildAndTest
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+      - kmn*-devel
 
 jobs:
   industrial_ci:
     strategy:
       matrix:
         env:
-          - {
-            DOCKER_IMAGE: 'moveit/moveit:master-ci',
-            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_FLAGS='--coverage' -DCMAKE_CXX_FLAGS='--coverage' --no-warn-unused-cli",
-            AFTER_RUN_TARGET_TEST: './.ci.prepare_codecov',
-            ADDITIONAL_DEBS: 'lcov',
-            CCOV_UPLOAD: true
-          }
-          - {
-            DOCKER_IMAGE: 'moveit/moveit:master-ci-shadow-fixed',
-            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
-            CCOV_UPLOAD: false,
-            CATKIN_LINT: true
-          }
-          - {
-            DOCKER_IMAGE: 'moveit/moveit:melodic-ci',
-            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
-            CCOV_UPLOAD: false,
+          - IMAGE: 'melodic-ci'
             BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
-          }
     env:
+      DOCKER_IMAGE: moveit/moveit:${{ matrix.env.IMAGE }}
       UPSTREAM_WORKSPACE: moveit.rosinstall
       AFTER_SETUP_UPSTREAM_WORKSPACE: 'vcs pull $BASEDIR/upstream_ws/src'
       AFTER_INSTALL_TARGET_DEPENDENCIES: 'df -h && apt-get clean && rm -rf /var/lib/apt/lists/* && df -h'
+      TARGET_CMAKE_ARGS: >
+        -DCMAKE_BUILD_TYPE=${{ matrix.env.CCOV && 'RelWithDebInfo' || 'Release'}}
+        ${{ matrix.env.CCOV && '-DCMAKE_CXX_FLAGS="--coverage" --no-warn-unused-cli' || '' }}
       CCACHE_DIR: "${{ github.workspace }}/.ccache"
       BASEDIR: ${{ github.workspace }}/.work
-      CACHE_PREFIX: "${{ matrix.env.DOCKER_IMAGE }}${{ matrix.env.CCOV_UPLOAD && '-ccov' || '' }}"
+      CACHE_PREFIX: "${{ matrix.env.DOCKER_IMAGE }}${{ matrix.env.CCOV && '-ccov' || '' }}"
+
+    name: "${{ matrix.env.IMAGE }}${{ matrix.env.CATKIN_LINT && ' + catkin_lint' || ''}}${{ matrix.env.CCOV && ' + ccov' || ''}}${{ contains(matrix.env.BEFORE_TARGET_TEST_EMBED, 'ikfast') && ' + ikfast' || ''}}"
     runs-on: ubuntu-latest
     steps:
       # Workaround for https://github.com/actions/virtual-environments/issues/709
-      - name: free up disk space
+      - name: "Free up disk space"
         run: |
+          echo "*** BEFORE ***"
           df -h
-          sudo apt-get -qq purge build-essential
-          sudo apt-get clean
+          mount | grep /dev/sd
+          #sudo apt-get -qq purge build-essential
+          #sudo apt-get clean
+          sudo ls -alR /mnt
           docker system prune -af
+          sudo systemctl stop docker
+          sudo ls -alR /usr/local
+          sudo ls -alR /opt
+          # sudo mount --bind /mnt /var/lib/docker
+          sudo systemctl start docker
+          echo "*** AFTER ***"
           df -h
       - uses: actions/checkout@v2
       - name: cache upstream_ws
@@ -62,9 +66,6 @@ jobs:
           restore-keys: |
             ccache-${{ env.CACHE_PREFIX }}-${{ github.sha }}
             ccache-${{ env.CACHE_PREFIX }}
-      - name: industrial_ci
-        uses: 'ros-industrial/industrial_ci@master'
-        env: ${{ matrix.env }}
       - name: upload test artifacts (on failure)
         uses: actions/upload-artifact@v2
         if: failure()
@@ -73,6 +74,6 @@ jobs:
           path: ${{ env.BASEDIR }}/target_ws/**/test_results/**/*.xml
       - name: upload codecov report
         uses: codecov/codecov-action@v1
-        if: ${{ matrix.env.CCOV_UPLOAD }}
+        if: ${{ env.CCOV }}
         with:
           files: ${{ env.BASEDIR }}/coverage.info
