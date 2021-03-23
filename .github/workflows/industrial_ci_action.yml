@@ -42,7 +42,7 @@ jobs:
       - name: free up disk space
         run: |
           df -h
-          sudo apt-get -qq purge build-essential libboost* mongodb ghc* azure-cli google-cloud-sdk adoptopenjdk-11-hotspot libgl1-mesa-dri hhvm google-chrome-stable dotnet-sdk-5.0 llvm-11-dev firefox adoptopenjdk-8-hotspot llvm* dotnet-sdk-3.1 powershell mysql*
+          sudo apt-get -qq purge build-essential libboost* mongodb* ghc* azure* google* libgl* hhvm dotnet* firefox adoptopenjdk* llvm* powershell mysql*
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo apt-get clean
