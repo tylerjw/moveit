@@ -43,8 +43,7 @@ jobs:
         run: |
           df -h
           sudo apt-get -qq purge build-essential libboost* mongodb* ghc* azure* google* libgl* hhvm dotnet* firefox adoptopenjdk* llvm* powershell mysql*
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf "/opt"
           sudo apt-get clean
           df -h
       - uses: actions/checkout@v2
