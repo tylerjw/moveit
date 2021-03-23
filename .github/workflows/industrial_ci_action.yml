@@ -43,11 +43,8 @@ jobs:
           #sudo apt-get clean
           sudo ls -alR /mnt
           docker system prune -af
-          sudo systemctl stop docker
-          sudo ls -alR /usr/local
-          sudo ls -alR /opt
-          # sudo mount --bind /mnt /var/lib/docker
-          sudo systemctl start docker
+          sudo rm -rf /usr/local/*
+          sudo ls -la /opt
           echo "*** AFTER ***"
           df -h
       - uses: actions/checkout@v2
