@@ -42,7 +42,7 @@ jobs:
       - name: free up disk space
         run: |
           df -h
-          dpkg-query -W --showformat='${Installed-Size;10}\t${Package}\n' | sort -k1,1n
+          sudo apt-get purge build-essential libboost* mongodb
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo apt-get clean
