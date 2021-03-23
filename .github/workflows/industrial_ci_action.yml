@@ -12,20 +12,20 @@ jobs:
         env:
           - {
             DOCKER_IMAGE: 'moveit/moveit:master-ci',
-            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_C_FLAGS='--coverage' -DCMAKE_CXX_FLAGS='--coverage' --no-warn-unused-cli",
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_FLAGS='--coverage' -DCMAKE_CXX_FLAGS='--coverage' --no-warn-unused-cli",
             AFTER_RUN_TARGET_TEST: './.ci.prepare_codecov',
             ADDITIONAL_DEBS: 'lcov',
             CCOV_UPLOAD: true
           }
           - {
             DOCKER_IMAGE: 'moveit/moveit:master-ci-shadow-fixed',
-            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RELEASE",
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
             CCOV_UPLOAD: false,
             CATKIN_LINT: true
           }
           - {
             DOCKER_IMAGE: 'moveit/moveit:melodic-ci',
-            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=RELEASE",
+            TARGET_CMAKE_ARGS: "-DCMAKE_BUILD_TYPE=Release",
             CCOV_UPLOAD: false,
             BEFORE_TARGET_TEST_EMBED: 'set +u && source moveit_kinematics/test/test_ikfast_plugins.sh && set -u'
           }
