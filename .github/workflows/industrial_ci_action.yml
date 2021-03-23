@@ -42,8 +42,9 @@ jobs:
       - name: free up disk space
         run: |
           df -h
-          sudo apt-get -qq purge build-essential libboost* mongodb* ghc* azure* google* libgl* hhvm dotnet* firefox adoptopenjdk* llvm* powershell mysql* python*
+          sudo apt-get -qq purge build-essential libboost* mongodb* ghc* azure* google* libgl* hhvm dotnet* firefox adoptopenjdk*
           sudo apt-get clean
+          docker system prune -af
           df -h
       - uses: actions/checkout@v2
       - name: cache upstream_ws
