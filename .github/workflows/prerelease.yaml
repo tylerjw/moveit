@@ -18,7 +18,7 @@ jobs:
       PRERELEASE: true
       BASEDIR: ${{ github.workspace }}/.work
       CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CACHE_PREFIX: "${{ matrix.env.IMAGE }}${{ matrix.env.CCOV && '-ccov' || '' }}"
+      CACHE_PREFIX: ${{ matrix.env.IMAGE }}${{ matrix.env.CCOV && '-ccov' || '' }}
 
     if: github.event_name == 'workflow_dispatch'  # only allow manual triggering
     name: "${{ matrix.distro }}"
@@ -40,3 +40,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: industrial_ci
         uses: ros-industrial/industrial_ci@master
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          files: '**/test_results/**/*.xml'
