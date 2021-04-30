@@ -14,9 +14,13 @@ jobs:
         distro: [noetic]
 
     env:
+      # https://github.com/ros-industrial/industrial_ci/issues/666
+      BUILDER: catkin_make_isolated
       ROS_DISTRO: ${{ matrix.distro }}
       PRERELEASE: true
       BASEDIR: ${{ github.workspace }}/.work
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CACHE_PREFIX: ${{ matrix.env.IMAGE }}${{ matrix.env.CCOV && '-ccov' || '' }}
 
     if: github.event_name == 'workflow_dispatch' # only allow manual triggering
     name: "${{ matrix.distro }}"
@@ -32,5 +36,13 @@ jobs:
           sudo rm -rf /usr/local
           df -h
       - uses: actions/checkout@v2
+      - name: cache ccache
+        uses: pat-s/always-upload-cache@v2.1.3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-prerelease-${{ env.ROS_DISTRO }}-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-prerelease-${{ env.ROS_DISTRO }}-${{ github.sha }}
+            ccache-prerelease-${{ env.ROS_DISTRO }}
       - name: industrial_ci
         uses: ros-industrial/industrial_ci@master
